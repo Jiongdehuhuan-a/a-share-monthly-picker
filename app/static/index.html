@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A股选股助手</title>
+<link rel="icon" type="image/png" href="/static/logo.png">
+<link rel="stylesheet" href="/static/style.css?v=20261103c">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <img class="logo" src="/static/logo.png" srcset="/static/logo@2x.png 2x"
+         width="40" height="40" alt="选股助手">
+    <div>
+      <h1>A股选股助手</h1>
+      <p class="sub">六因子月度轮动 · 本地运行</p>
+    </div>
+  </div>
+  <div class="chips">
+    <span class="chip" id="chip-data"><i class="dot"></i>数据加载中…</span>
+    <span class="chip" id="chip-signal"><i class="dot"></i>暂无信号</span>
+    <span class="chip" id="chip-market"><i class="dot"></i>市场情绪 —</span>
+  </div>
+  <div class="actions">
+    <button class="btn ghost" id="btn-update">更新数据</button>
+    <button class="btn primary" id="btn-signal">生成信号</button>
+  </div>
+</header>
+
+<div class="progress hidden" id="progress">
+  <div class="bar" id="bar"></div>
+  <span id="pmsg">准备中…</span>
+</div>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="signal">选股信号</button>
+  <button class="tab" data-tab="news">新闻情绪</button>
+  <button class="tab" data-tab="orders">调仓单</button>
+  <button class="tab" data-tab="3d">3D 视图</button>
+  <button class="tab" data-tab="perf">回测表现</button>
+  <button class="tab" data-tab="settings">参数设置</button>
+</nav>
+
+<main>
+  <!-- ============ 选股信号 ============ -->
+  <section id="tab-signal">
+    <div class="cards" id="sig-cards"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>本期目标组合</h2>
+        <div class="tools">
+          <label class="switch"><input type="checkbox" id="show-factors"> 显示因子明细</label>
+          <button class="btn small" id="btn-csv">导出 CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="sig-table">
+          <thead><tr>
+            <th>#</th><th>代码</th><th>名称</th><th>行业</th>
+            <th class="num">权重</th><th class="num">综合分</th><th>新闻</th>
+            <th class="num">参考价</th>
+            <th class="num">买入参考</th><th class="num">目标价</th>
+            <th class="num">建议股数</th><th class="num">金额</th>
+          </tr></thead>
+          <tbody><tr><td colspan="12" class="empty">还没有信号，点右上角「生成信号」</td></tr></tbody>
+        </table>
+      </div>
+      <p class="hint">买入参考 = 「挂单价 / 可追上限」：挂单价在现价下方约 0.5 个日波动处，成交约三成；
+        可追上限是隔夜跳空 90% 分位，按它挂基本能在开盘成交，跳空超过它就放弃这只。
+        目标价 = 现价 ×(1+该综合分位对应的历史 21 日平均涨幅)。</p>
+    </div>
+  </section>
+
+  <!-- ============ 新闻情绪 ============ -->
+  <section id="tab-news" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>市场情绪</h2>
+        <span class="hint" id="news-time"></span>
+      </div>
+      <div class="market-row">
+        <div class="gauge-wrap">
+          <div class="gauge"><div class="gauge-fill" id="gauge-fill"></div></div>
+          <div class="gauge-labels"><span>利空</span><span>中性</span><span>利好</span></div>
+          <div class="gauge-val" id="gauge-val">—</div>
+        </div>
+        <div class="market-stats" id="market-stats"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>最近市场快讯</h2><span class="hint">词典打分，仅用于观察情绪</span></div>
+      <div class="table-wrap" style="max-height:320px">
+        <table id="feed-table">
+          <thead><tr><th>时间</th><th>标题</th><th class="num">情绪</th></tr></thead>
+          <tbody><tr><td colspan="3" class="empty">还没有新闻数据，先点「生成信号」</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>候选股新闻情绪</h2>
+        <span class="hint">按 |z| 排序，只显示有新闻的股票</span>
+      </div>
+      <div class="table-wrap">
+        <table id="news-table">
+          <thead><tr>
+            <th>代码</th><th>名称</th><th class="num">情绪分</th>
+            <th class="num">z</th><th>标签</th><th class="num">条数</th><th>最近标题</th>
+          </tr></thead>
+          <tbody><tr><td colspan="7" class="empty">还没有新闻数据</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 调仓单 ============ -->
+  <section id="tab-orders" hidden>
+    <div class="cards" id="eq-cards"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>当前持仓</h2>
+        <div class="tools">
+          <button class="btn small" id="btn-manual-trade">手动记一笔</button>
+          <button class="btn small" id="btn-from-signal">按信号填充演示持仓</button>
+          <button class="btn small ghost" id="btn-clear">清空</button>
+        </div>
+      </div>
+      <div class="hold-form">
+        <div class="field">
+          <label>可用现金（元）</label>
+          <input type="number" id="h-cash" value="0" step="1000">
+        </div>
+        <div class="field grow">
+          <label>持仓明细（每行：代码,股数）</label>
+          <textarea id="h-pos" rows="5" placeholder="600000,1000&#10;000001,2000"></textarea>
+        </div>
+      </div>
+      <button class="btn primary" id="btn-orders">生成调仓单</button>
+    </div>
+
+    <div class="cards" id="ord-cards"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>下单明细</h2>
+        <div class="tools">
+          <button class="btn small" id="btn-record-all">全部记账</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="ord-table">
+          <thead><tr>
+            <th>操作</th><th>代码</th><th>名称</th><th class="num">现价</th>
+            <th class="num">参考成交价</th>
+            <th class="num">现有股数</th><th class="num">目标股数</th>
+            <th class="num">变动</th><th class="num">金额</th><th class="num">预估费用</th>
+            <th>记账</th>
+          </tr></thead>
+          <tbody><tr><td colspan="11" class="empty">先填持仓，再生成调仓单</td></tr></tbody>
+        </table>
+      </div>
+      <p class="hint">参考成交价：买入是「挂单价 / 可追上限」，卖出是「挂单价 / 最低接受价」；
+        按挂单价挂限价单，超过了就用另一侧兜底（买别追太高、卖别砸太低）。
+        点「+」把这一笔记进成交记录，持仓和现金会自动更新；点「全部记账」一次性记完全部调仓。</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>成交记录</h2>
+        <span class="hint" id="trade-summary"></span>
+      </div>
+      <div class="table-wrap" style="max-height:360px">
+        <table id="trade-table">
+          <thead><tr>
+            <th>时间</th><th>方向</th><th>代码</th><th>名称</th>
+            <th class="num">股数</th><th class="num">价格</th>
+            <th class="num">金额</th><th class="num">费用</th><th>操作</th>
+          </tr></thead>
+          <tbody><tr><td colspan="9" class="empty">还没有成交记录</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>每日资产</h2>
+        <span class="hint">总资产 = 现金 + 持股 × 当日收盘价</span>
+      </div>
+      <div class="table-wrap" style="max-height:300px">
+        <table id="eq-table">
+          <thead><tr>
+            <th>日期</th><th class="num">总资产</th><th class="num">持仓市值</th>
+            <th class="num">现金</th><th class="num">当日盈亏</th><th class="num">当日涨跌</th>
+          </tr></thead>
+          <tbody><tr><td colspan="6" class="empty">还没有资产记录，记一笔成交或刷新页面即可生成</td></tr></tbody>
+        </table>
+      </div>
+      <p class="hint">手动修改可用现金（出入金）也会计入盈亏，请留意。</p>
+    </div>
+  </section>
+
+  <!-- ============ 3D 视图 ============ -->
+  <section id="tab-3d" hidden>
+    <iframe id="frame3d" title="3D 持仓星图"></iframe>
+  </section>
+
+  <!-- ============ 回测表现 ============ -->
+  <section id="tab-perf" hidden>
+    <div class="cards" id="perf-cards"></div>
+    <div class="panel">
+      <div class="panel-head"><h2>净值与回撤</h2><span class="hint" id="perf-range"></span></div>
+      <img class="chart" id="img-nav" alt="净值曲线">
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>因子 IC</h2></div>
+      <img class="chart" id="img-ic" alt="因子IC">
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>分年度收益</h2></div>
+      <div class="table-wrap"><table id="year-table">
+        <thead><tr><th>年度</th><th class="num">策略</th><th class="num">中证800</th><th class="num">超额</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>指标说明</h2>
+        <span class="hint">上面每个数字是怎么算的、该怎么读</span></div>
+      <div class="table-wrap" style="max-height:none"><table id="doc-metrics">
+        <thead><tr><th style="width:110px">指标</th>
+          <th style="width:280px">算法</th><th>怎么读</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>这份回测用的参数</h2>
+        <span class="hint">在「参数设置」改参数只影响以后生成信号，不会重跑历史回测</span></div>
+      <div class="table-wrap" style="max-height:none"><table id="doc-params">
+        <thead><tr><th style="width:150px">参数</th>
+          <th class="num" style="width:150px">本回测取值</th><th>含义</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- ============ 参数设置 ============ -->
+  <section id="tab-settings" hidden>
+    <div class="panel">
+      <div class="panel-head"><h2>策略参数</h2></div>
+      <div class="grid2">
+        <div class="field"><label>持仓只数</label><input type="number" id="s-topn" min="10" max="200"></div>
+        <div class="field"><label>单行业上限（%）</label><input type="number" id="s-ind" min="10" max="100" step="1"></div>
+        <div class="field"><label>20日均成交额下限（万元）</label><input type="number" id="s-amt" min="1000" step="500"></div>
+        <div class="field"><label>账户资金（元）</label><input type="number" id="s-cap" min="10000" step="10000"></div>
+      </div>
+      <h3>因子权重</h3>
+      <div class="weights" id="weights"></div>
+
+      <h3 style="margin-top:22px">质量因子（ROE / 毛利率）</h3>
+      <div class="grid2">
+        <div class="field">
+          <label>质量门槛：剔除 ROE&lt;0 或 毛利率&lt;0 的股票</label>
+          <label class="switch big"><input type="checkbox" id="s-qscreen"> 启用</label>
+        </div>
+        <div class="field">
+          <label>质量倾斜强度（0 表示只做门槛、不参与打分）</label>
+          <div class="wrow"><input type="range" id="s-qtilt" min="0" max="30" step="1">
+            <span class="val" id="s-qtilt-v">0</span></div>
+        </div>
+      </div>
+
+      <h3>新闻情绪</h3>
+      <div class="grid2">
+        <div class="field">
+          <label>抓取个股新闻并调整得分</label>
+          <label class="switch big"><input type="checkbox" id="s-news"> 启用</label>
+        </div>
+        <div class="field">
+          <label>硬利空（立案/退市/造假）一票否决</label>
+          <label class="switch big"><input type="checkbox" id="s-veto"> 启用</label>
+        </div>
+        <div class="field">
+          <label>情绪倾斜强度</label>
+          <div class="wrow"><input type="range" id="s-ntilt" min="0" max="50" step="1">
+            <span class="val" id="s-ntilt-v">15</span></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="btn primary" id="btn-save">保存参数</button>
+        <button class="btn ghost" id="btn-reset">恢复默认</button>
+        <span class="hint">权重会自动归一化。改动只影响之后生成的信号。</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>运行日志</h2><button class="btn small" id="btn-log">刷新</button></div>
+      <pre class="log" id="log-box">—</pre>
+    </div>
+  </section>
+</main>
+
+<footer>数据来源：东方财富公开接口 ｜ 仅供研究，不构成投资建议</footer>
+
+<!-- 记账弹窗 -->
+<div class="modal hidden" id="trade-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="tm-title">记一笔成交</h3>
+      <button class="modal-x" id="tm-close">×</button>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>代码</label><input id="tm-code" placeholder="600000"></div>
+      <div class="field"><label>名称</label><input id="tm-name" placeholder="可选"></div>
+      <div class="field"><label>方向</label>
+        <select id="tm-side"><option value="BUY">买入</option><option value="SELL">卖出</option></select>
+      </div>
+      <div class="field"><label>股数</label><input type="number" id="tm-shares" step="100" min="1"></div>
+      <div class="field"><label>成交价（可改）</label><input type="number" id="tm-price" step="0.01" min="0.01"></div>
+      <div class="field"><label>金额</label><div class="mono" id="tm-amount" style="padding:8px 0">—</div></div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="tm-ok">记入</button>
+      <button class="btn ghost" id="tm-cancel">取消</button>
+      <span class="hint" id="tm-tip"></span>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js?v=20261103c"></script>
+</body>
+</html>

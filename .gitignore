@@ -1,0 +1,27 @@
+# ---------- 数据（体积大，需本地拉取，不入库）----------
+data/
+
+# ---------- 打包产物 ----------
+dist/
+build/
+*.spec
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---------- 运行日志 / 临时文件 ----------
+*.log
+*.tmp
+*.bak
+
+# ---------- 编辑器 / 系统 ----------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

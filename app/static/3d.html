@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D 持仓星图</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#070a10;
+    font-family:-apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;color:#e6ebf5}
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+
+  .hud{position:absolute;pointer-events:none;user-select:none}
+  .title{
+    left:26px;top:22px;font-size:19px;font-weight:650;letter-spacing:.5px;
+    text-shadow:0 2px 12px rgba(0,0,0,.8);
+  }
+  .title small{display:block;font-size:12px;font-weight:400;color:#8b98ad;margin-top:4px;letter-spacing:0}
+  .legend{
+    left:26px;bottom:24px;font-size:12.5px;color:#9aa7bd;line-height:1.9;
+    background:rgba(12,17,26,.55);border:1px solid rgba(120,140,175,.18);
+    border-radius:10px;padding:12px 16px;backdrop-filter:blur(6px);pointer-events:none;
+  }
+  .legend b{color:#dbe4f3;font-weight:600}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+  .tips{
+    right:26px;top:22px;font-size:12px;color:#6f7d93;text-align:right;line-height:1.8;
+  }
+  #tip{
+    position:absolute;pointer-events:none;display:none;z-index:9;
+    background:rgba(10,15,23,.94);border:1px solid rgba(120,150,200,.35);
+    border-radius:9px;padding:9px 13px;font-size:12.5px;line-height:1.7;
+    box-shadow:0 10px 30px rgba(0,0,0,.55);min-width:160px;
+  }
+  #tip .n{font-weight:650;font-size:13.5px;color:#fff}
+  #tip .c{color:#7f8ca1;font-size:11.5px;margin-bottom:5px}
+  #tip .r{display:flex;justify-content:space-between;gap:18px}
+  #tip .r span:last-child{color:#cfd8e6}
+  #loading{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:14px;color:#7f8ca1;letter-spacing:1px;
+  }
+  .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:10px;color:#8b98ad;font-size:14px;text-align:center;line-height:1.9}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div class="hud title">
+  3D 持仓星图
+  <small id="sub">加载中…</small>
+</div>
+
+<div class="hud tips">
+  拖拽旋转 · 滚轮缩放 · 右键平移<br>鼠标悬停看个股
+</div>
+
+<div class="hud legend">
+  <b>坐标轴</b><br>
+  <span class="dot" style="background:#e8674f"></span>X 价值（越右越便宜）<br>
+  <span class="dot" style="background:#4fa3e8"></span>Y 动量（越高越强势）<br>
+  <span class="dot" style="background:#59d39a"></span>Z 低风险（越靠前波动/换手越低）<br>
+  <span style="display:block;height:8px"></span>
+  <b>颜色</b> 绿=利好 红=利空 灰=中性 ｜ <b>大小</b>=权重
+</div>
+
+<div id="tip"></div>
+<div id="loading">正在加载 three.js 场景…</div>
+
+<script src="/static/vendor/three.min.js"></script>
+<script src="/static/vendor/OrbitControls.js"></script>
+<script src="/static/3d.js"></script>
+</body>
+</html>

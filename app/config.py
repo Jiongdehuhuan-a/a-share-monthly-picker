@@ -59,7 +59,7 @@ DEFAULT_SETTINGS = {
         "reversal": 0.0411,
         # 下面两个默认关闭：实测 SUE 单因子 IC 接近 0，上调比例暂无数据源
         "sue": 0.0,
-        "rev_up": 0.0,
+        "fcst_up": 0.0,
     },
     "quality_screen": True,     # 质量门槛：剔除 ROE<0 或毛利率<0 的股票
     "quality_tilt": 0.0,        # 质量倾斜（0~0.3，实测越大收益越低，默认关闭）
@@ -84,7 +84,7 @@ WEIGHT_LABELS = {
     "reversal": "短期反转(20日)",
     "ocf_ni": "盈利质量(现金流/净利润)",
     "sue": "盈利超预期 SUE",
-    "rev_up": "分析师上调比例",
+    "fcst_up": "业绩预告面",
     "roe": "净资产收益率 ROE",
     "gm": "销售毛利率",
 }

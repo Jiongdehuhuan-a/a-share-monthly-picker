@@ -21,6 +21,7 @@ env/
 
 # ---------- 编辑器 / 系统 ----------
 .vscode/
+.vs/
 .idea/
 .DS_Store
 Thumbs.db

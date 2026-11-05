@@ -135,9 +135,9 @@ python src/split_test.py
 | 因子 | 含义 | 实测 |
 |---|---|---|
 | `sue` | 标准化预期外盈利（Δ4 EPS / std(过去 8 期 Δ4)） | RankIC +0.0025（t=0.25），组合层面无增量 |
-| `rev_up` | 分析师盈利上调比例（滚动 90 天） | 数据源限流中，管线就绪、面板待生成 |
+| `fcst_up` | 业绩预告正面占比（滚动 90 天，预增/扭亏等） | RankIC +0.0104（t=1.63），组合层面无显著增益 |
 
-复现：`python src/build_fundamentals.py`（生成 sue）、`python src/build_analyst.py`（生成 rev_up）。
+复现：`python src/build_fundamentals.py`（生成 sue）、`python src/build_forecast.py`（生成 fcst_up）。
 
 命令行覆盖：
 

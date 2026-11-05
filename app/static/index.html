@@ -158,12 +158,12 @@
         <table id="ord-table">
           <thead><tr>
             <th>操作</th><th>代码</th><th>名称</th><th class="num">现价</th>
-            <th class="num">参考成交价</th>
+            <th class="num">参考成交价</th><th class="num">止盈 / 止损</th>
             <th class="num">现有股数</th><th class="num">目标股数</th>
             <th class="num">变动</th><th class="num">金额</th><th class="num">预估费用</th>
             <th>记账</th>
           </tr></thead>
-          <tbody><tr><td colspan="11" class="empty">先填持仓，再生成调仓单</td></tr></tbody>
+          <tbody><tr><td colspan="12" class="empty">先填持仓，再生成调仓单</td></tr></tbody>
         </table>
       </div>
       <p class="hint">参考成交价：买入是「挂单价 / 可追上限」，卖出是「挂单价 / 最低接受价」；
@@ -259,6 +259,22 @@
       <h3>因子权重</h3>
       <div class="weights" id="weights"></div>
 
+      <h3 style="margin-top:22px">风控与择时</h3>
+      <div class="grid2">
+        <div class="field">
+          <label>筹码集中度倾斜（股东户数下降 = 筹码集中 = 加分）</label>
+          <div class="wrow"><input type="range" id="s-holdtilt" min="0" max="60" step="5">
+            <span class="val" id="s-holdtilt-v">0</span></div>
+        </div>
+        <div class="field">
+          <label>指数动量择时（中证800 动量为负 → 降仓）</label>
+          <label class="switch big"><input type="checkbox" id="s-momtiming"> 启用</label>
+        </div>
+        <div class="field"><label>动量回看天数</label>
+          <input type="number" id="s-momwin" min="20" max="250" step="5" value="60"></div>
+        <div class="field"><label>触发时股票仓位（%）</label>
+          <input type="number" id="s-offexp" min="10" max="100" step="5" value="40"></div>
+      </div>
       <h3 style="margin-top:22px">质量因子（ROE / 毛利率）</h3>
       <div class="grid2">
         <div class="field">

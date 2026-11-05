@@ -50,6 +50,7 @@ def compute(signal: dict, holdings: dict, settings: dict | None = None) -> dict:
     except Exception:  # noqa: BLE001
         name_map = {}
 
+    exposure = float(signal.get("exposure", 1.0) or 1.0)
     mv = sum(sh * px_map[c] for c, sh in pos.items() if px_map.get(c))
     total = cash + mv
     if total <= 0:
@@ -63,7 +64,7 @@ def compute(signal: dict, holdings: dict, settings: dict | None = None) -> dict:
         w = float(picks[c]["weight"]) if c in picks else 0.0
         tgt_sh = 0
         if px and w > 0:
-            tgt_sh = int(round(total * w / px / 100) * 100)
+            tgt_sh = int(round(total * exposure * w / px / 100) * 100)
         delta = tgt_sh - sh
         if abs(delta) < 1:
             action = "HOLD"
@@ -91,6 +92,8 @@ def compute(signal: dict, holdings: dict, settings: dict | None = None) -> dict:
             "post_price": post_px,
             "edge_price": edge_px,
             "target": band.get("target"),
+            "take_profit": band.get("take_profit"),
+            "stop_loss": band.get("stop"),
             "current_shares": int(sh),
             "target_shares": int(tgt_sh),
             "delta": int(delta),
@@ -135,6 +138,7 @@ def compute(signal: dict, holdings: dict, settings: dict | None = None) -> dict:
         "total_assets": round(total, 0),
         "market_value": round(mv, 0),
         "cash": round(cash, 0),
+        "exposure": round(exposure, 3),
         "cash_scale": round(scale, 3),
         "n_buy": len(buys),
         "n_sell": len(sells),

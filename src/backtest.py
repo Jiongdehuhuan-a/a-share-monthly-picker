@@ -33,7 +33,8 @@ OUT = ROOT / "output"
 PANEL_COLS = ["close", "adjopen", "turnover", "amount", "pct_chg",
               "pe_ttm", "pb", "float_mv"]
 # 财务面板（需要先跑 build_fundamentals.py；缺失时自动跳过对应因子）
-OPTIONAL_COLS = ["roe", "gm", "yoy_profit", "ocf_ni", "sue", "fcst_up"]
+OPTIONAL_COLS = ["roe", "gm", "yoy_profit", "ocf_ni", "sue", "fcst_up",
+                 "hold_crowd"]
 
 FACTORS = ["ep", "bp", "momentum", "lowvol", "turnover", "size",
            "reversal", "ocf_ni", "sue", "fcst_up", "roe", "gm"]
@@ -82,7 +83,8 @@ class Config:
     risk_switch: bool = False
     quality_screen: bool = True       # 用 ROE>0 且毛利率>0 做质量门槛（剔除亏损股）
     quality_tilt: float = 0.0         # 质量倾斜强度（不改变六因子的相对权重）
-    crowd_penalty: float = 0.0        # 行业拥挤度惩罚：扣分 = 该值 × 拥挤度标准分
+    crowd_penalty: float = -0.4       # 拥挤度倾斜：负值=偏好筹码集中（实测最优），正值=回避拥挤
+    crowd_source: str = "holding"     # holding=股东户数(筹码集中)  turnover=成交/动量
     mom_timing: bool = False          # 动量择时：指数 N 日动量为负时降仓
     mom_window: int = 60              # 动量择时的回看天数
     fwd_days: int = 21                # 计算 IC 的前瞻天数（周度策略用 5）
@@ -283,7 +285,9 @@ def run(cfg: Config, verbose: bool = True, factor_fn=None, reb_fn=None) -> dict:
 
     # 行业拥挤度：换手相对自身 250 日均值的分位 + 行业 20 日动量分位
     crowd_stock = None
-    if cfg.crowd_penalty > 0:
+    if cfg.crowd_penalty != 0 and cfg.crowd_source == "holding" and "hold_crowd" in p:
+        crowd_stock = p["hold_crowd"]          # 股东户数降幅 → 已按报告期截面排名
+    elif cfg.crowd_penalty != 0:
         turn20 = p["turnover"].rolling(20, min_periods=15).mean()
         ret20 = p["close"] / p["close"].shift(20) - 1.0
         ind_turn = turn20.T.groupby(ind).mean().T
@@ -519,15 +523,16 @@ def main():
                     help="启用指数动量择时（回看 60 日动量为负则降仓）")
     ap.add_argument("--mom-window", type=int, default=60,
                     help="动量择时回看天数，默认 60")
-    ap.add_argument("--crowd-penalty", type=float, default=0.0,
-                    help="行业拥挤度惩罚强度（0=关闭，0.2/0.4 是常见档位）")
+    ap.add_argument("--crowd-penalty", type=float, default=None,
+                    help="拥挤度倾斜：负=偏好筹码集中（默认 -0.4），正=回避拥挤")
     ap.add_argument("--tag", default="")
     args = ap.parse_args()
 
     cfg = Config(start=args.start, end=args.end, top_n=args.top_n,
                  risk_switch=args.risk_switch,
-                 mom_timing=args.mom_timing, mom_window=args.mom_window,
-                 crowd_penalty=args.crowd_penalty)
+                 mom_timing=args.mom_timing, mom_window=args.mom_window)
+    if args.crowd_penalty is not None:      # 不传就用 Config 默认（-0.4）
+        cfg.crowd_penalty = args.crowd_penalty
     print(f"回测 {cfg.start} ~ {cfg.end}  top_n={cfg.top_n} "
           f"risk_switch={cfg.risk_switch}")
     res = run(cfg)

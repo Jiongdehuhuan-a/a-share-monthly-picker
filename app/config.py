@@ -70,6 +70,10 @@ DEFAULT_SETTINGS = {
     "commission": 0.00025,
     "stamp": 0.0005,
     "slippage": 0.001,
+    "hold_tilt": 0.4,           # 筹码集中度倾斜：股东户数下降幅度越大的股票加分（回测最优）
+    "mom_timing": False,        # 指数动量择时：动量为负时降仓
+    "mom_window": 60,           # 动量择时回看天数
+    "off_exposure": 0.40,       # 择时触发时的股票仓位
     "auto_update_hour": 17,     # 每个交易日 17:00 后自动更新数据
     "auto_signal": True,        # 每月最后一个交易日自动生成信号
 }
@@ -130,6 +134,9 @@ def save_settings(s: dict) -> dict:
     cfg["capital"] = _clamp(cfg.get("capital"), 10000, 1e10, 1_000_000)
     cfg["quality_tilt"] = _clamp(cfg.get("quality_tilt"), 0.0, 0.5, 0.0)
     cfg["news_tilt"] = _clamp(cfg.get("news_tilt"), 0.0, 0.5, 0.15)
+    cfg["hold_tilt"] = _clamp(cfg.get("hold_tilt"), 0.0, 0.6, 0.0)
+    cfg["mom_window"] = int(_clamp(cfg.get("mom_window"), 20, 250, 60))
+    cfg["off_exposure"] = _clamp(cfg.get("off_exposure"), 0.1, 1.0, 0.4)
     cfg["buffer_ratio"] = _clamp(cfg.get("buffer_ratio"), 1.0, 3.0, 1.5)
     SETTINGS_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2),
                              encoding="utf-8")

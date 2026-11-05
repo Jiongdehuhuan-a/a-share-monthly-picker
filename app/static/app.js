@@ -315,13 +315,14 @@ function renderOrders(res, silent = false) {
     <td class="mono">${r.code}</td><td>${r.name || ""}</td>
     <td class="num mono">${r.price ?? "—"}</td>
     <td class="num">${refCell(r)}</td>
+    <td class="num">${tpslCell(r)}</td>
     <td class="num mono">${nf(r.current_shares)}</td>
     <td class="num mono">${nf(r.target_shares)}</td>
     <td class="num mono">${r.delta > 0 ? "+" : ""}${nf(r.delta)}</td>
     <td class="num mono">${nf(r.amount)}</td>
     <td class="num mono">${nf(r.fee)}</td>
     <td>${rec}</td></tr>`;
-  }).join("") || `<tr><td colspan="11" class="empty">没有需要调整的持仓</td></tr>`;
+  }).join("") || `<tr><td colspan="12" class="empty">没有需要调整的持仓</td></tr>`;
 
   $$("#ord-table .plus").forEach(b => {
     b.onclick = () => recordOrder(Number(b.dataset.i));
@@ -331,6 +332,14 @@ function renderOrders(res, silent = false) {
   }
 }
 
+/* 调仓单的止盈/止损单元格 */
+function tpslCell(r) {
+  const tp = r.take_profit, sl = r.stop_loss;
+  if (tp == null && sl == null) return `<span class="muted">—</span>`;
+  return `<span class="mono" style="color:#1a9c62">${tp ?? "—"}</span>`
+    + `<span style="color:#9aa2ad"> / </span>`
+    + `<span class="mono" style="color:#c0392b">${sl ?? "—"}</span>`;
+}
 /* 调仓单的「参考成交价」单元格：买入=挂单/可追，卖出=挂单/最低接受 */
 function refCell(r) {
   if (r.post_price == null && r.edge_price == null) return `<span class="muted">—</span>`;
@@ -656,6 +665,11 @@ async function loadSettings() {
   $("#s-qtilt-v").textContent = Math.round((s.quality_tilt || 0) * 100);
   $("#s-news").checked = !!s.news_enabled;
   $("#s-veto").checked = !!s.news_veto;
+  $("#s-holdtilt").value = Math.round((s.hold_tilt || 0) * 100);
+  $("#s-holdtilt-v").textContent = Math.round((s.hold_tilt || 0) * 100);
+  $("#s-momtiming").checked = !!s.mom_timing;
+  $("#s-momwin").value = s.mom_window ?? 60;
+  $("#s-offexp").value = Math.round((s.off_exposure ?? 0.4) * 100);
   $("#s-ntilt").value = Math.round((s.news_tilt || 0) * 100);
   $("#s-ntilt-v").textContent = Math.round((s.news_tilt || 0) * 100);
   $("#weights").innerHTML = Object.entries(s.weights).map(([k, v]) =>
@@ -667,6 +681,7 @@ async function loadSettings() {
   });
   $("#s-qtilt").oninput = () => { $("#s-qtilt-v").textContent = $("#s-qtilt").value; };
   $("#s-ntilt").oninput = () => { $("#s-ntilt-v").textContent = $("#s-ntilt").value; };
+  $("#s-holdtilt").oninput = () => { $("#s-holdtilt-v").textContent = $("#s-holdtilt").value; };
 }
 
 async function saveSettings() {
@@ -690,6 +705,10 @@ async function saveSettings() {
     news_enabled: !!$("#s-news").checked,
     news_veto: !!$("#s-veto").checked,
     news_tilt: num("#s-ntilt", 15) / 100,
+    hold_tilt: num("#s-holdtilt", 0) / 100,
+    mom_timing: !!$("#s-momtiming").checked,
+    mom_window: num("#s-momwin", 60),
+    off_exposure: num("#s-offexp", 40) / 100,
   };
   const saved = await api("/api/settings", { method: "POST", body: JSON.stringify(body) });
   STATE.settings = saved;

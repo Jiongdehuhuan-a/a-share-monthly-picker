@@ -187,6 +187,13 @@ def generate(settings: dict | None = None,
         tot_w = tot_w.add((sc.notna() * wk).astype(float), fill_value=0.0)
     score = (tot_s / tot_w.where(tot_w > 0)).reindex(codes)
 
+    # 筹码集中度倾斜：股东户数降幅排名越高（筹码越集中）加分
+    hold_tilt = float(s.get("hold_tilt", 0.0) or 0.0)
+    if hold_tilt > 0 and "hold_crowd" in p:
+        cw = p["hold_crowd"].loc[d].reindex(codes)
+        cw = cw.rank(pct=True) - 0.5
+        score = score + hold_tilt * cw.fillna(0.0)
+
     if float(s.get("quality_tilt", 0.0)) > 0 and "roe" in raw:
         q = 0.5 * bt._cs_standardize(raw["roe"].loc[d].where(elig), ind)
         if "gm" in raw:
@@ -203,6 +210,23 @@ def generate(settings: dict | None = None,
     prev = [c for c in (prev_codes or []) if c in set(codes)]
     tw = bt.target_weights(score, elig, ind, prev, cfg)
 
+    # 指数动量择时：中证800 回看 N 日动量为负 → 降仓
+    exposure = 1.0
+    mom_note = None
+    if s.get("mom_timing"):
+        try:
+            idx = p["index"]
+            bm = (idx[idx["index"] == "zz800"].set_index("date")["close"]
+                  .reindex(pt["close"].index).ffill())
+            win = int(s.get("mom_window", 60))
+            mom = float(bm.loc[d] / bm.shift(win).loc[d] - 1.0)
+            off = float(s.get("off_exposure", 0.4))
+            exposure = 1.0 if mom > 0 else off
+            mom_note = {"window": win, "mom": round(mom, 4),
+                        "triggered": bool(mom <= 0)}
+        except Exception:  # noqa: BLE001
+            exposure = 1.0
+
     price = close.loc[d]
     capital, cap_src, cash_now, mv_now = _resolve_capital(s, holdings, price)
     news_stocks = (news_data or {}).get("stocks", {})
@@ -212,7 +236,7 @@ def generate(settings: dict | None = None,
     picks = []
     for c, w in tw.sort_values(ascending=False).items():
         px = float(price.get(c, np.nan))
-        tgt = capital * float(w)
+        tgt = capital * exposure * float(w)
         shares = int(round(tgt / px / 100) * 100) if px and px > 0 else 0
         nw = news_stocks.get(c) or {}
         try:
@@ -251,6 +275,9 @@ def generate(settings: dict | None = None,
         "n_picks": len(picks),
         "capital": round(float(capital), 0),
         "capital_source": cap_src,          # holdings=真实总资产 / settings=参数设置里的值
+        "exposure": round(float(exposure), 3),
+        "mom_note": mom_note,
+        "hold_tilt": round(hold_tilt, 3),
         "cash": round(float(cash_now), 0),
         "market_value": round(float(mv_now), 0),
         "settings": {

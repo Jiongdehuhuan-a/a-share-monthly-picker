@@ -28,6 +28,7 @@ DEFAULTS = {
     "chase_gap": 0.010,     # 可追上限：现价 +1.0%（跳空 p90）
     "floor_gap": -0.012,    # 最低接受：现价 −1.2%（跳空 p10）
     "stop_k": 1.5,          # 止损参考：现价 − 1.5σ
+    "tp_k": 2.0,            # 止盈：至少 2σ 或 目标涨幅
     "horizon_days": 21,
     "sigma_median": 0.02,
     "bin_mean_ret": [],
@@ -100,7 +101,10 @@ def band(price, sig, exp_ret: float = 0.0) -> dict:
     stop_k = float(m.get("stop_k", 1.5))
     er = float(exp_ret or 0.0)
 
+    # 止盈：至少给 2 个日波动，且不低于评分给出的 21 日目标涨幅
+    tp_ret = max(2.0 * s, er)
     return {
+        "take_profit": _r(px * (1 + tp_ret)),
         "buy_limit": _r(px * (1 - kb * s)),
         "buy_cap": _r(px * (1 + chase)),
         "sell_limit": _r(px * (1 + ks * s)),

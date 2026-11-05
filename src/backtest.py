@@ -82,6 +82,9 @@ class Config:
     risk_switch: bool = False
     quality_screen: bool = True       # 用 ROE>0 且毛利率>0 做质量门槛（剔除亏损股）
     quality_tilt: float = 0.0         # 质量倾斜强度（不改变六因子的相对权重）
+    crowd_penalty: float = 0.0        # 行业拥挤度惩罚：扣分 = 该值 × 拥挤度标准分
+    mom_timing: bool = False          # 动量择时：指数 N 日动量为负时降仓
+    mom_window: int = 60              # 动量择时的回看天数
     fwd_days: int = 21                # 计算 IC 的前瞻天数（周度策略用 5）
     ma_window: int = 200
     off_exposure: float = 0.40
@@ -272,6 +275,26 @@ def run(cfg: Config, verbose: bool = True, factor_fn=None, reb_fn=None) -> dict:
     if cfg.risk_switch:
         exposure = pd.Series(np.where(bm > bm_ma, 1.0, cfg.off_exposure),
                              index=all_dates)
+    # 动量择时：指数回看 N 日动量为负就降仓（与均线择时二选一，动量优先）
+    if cfg.mom_timing:
+        mom = bm / bm.shift(int(cfg.mom_window)) - 1.0
+        exposure = pd.Series(np.where(mom > 0, 1.0, cfg.off_exposure),
+                             index=all_dates)
+
+    # 行业拥挤度：换手相对自身 250 日均值的分位 + 行业 20 日动量分位
+    crowd_stock = None
+    if cfg.crowd_penalty > 0:
+        turn20 = p["turnover"].rolling(20, min_periods=15).mean()
+        ret20 = p["close"] / p["close"].shift(20) - 1.0
+        ind_turn = turn20.T.groupby(ind).mean().T
+        ind_ret = ret20.T.groupby(ind).mean().T
+        heat = (ind_turn / ind_turn.rolling(250, min_periods=60).mean()).rank(
+                    axis=1, pct=True) \
+             + ind_ret.rank(axis=1, pct=True)
+        heat = heat.reindex(columns=sorted(set(ind.dropna().values)))
+        cols = ind.dropna()
+        crowd_stock = heat.loc[:, cols.values]
+        crowd_stock.columns = cols.index
 
     W = cfg.weights
     fwd = close.shift(-int(cfg.fwd_days)) / close - 1
@@ -319,6 +342,12 @@ def run(cfg: Config, verbose: bool = True, factor_fn=None, reb_fn=None) -> dict:
                 q = q.add(0.5 * _cs_standardize(raw["gm"].loc[d].where(elig), ind),
                           fill_value=0.0)
             sc = sc + cfg.quality_tilt * q.reindex(codes).fillna(0.0)
+
+        if crowd_stock is not None:
+            cw = crowd_stock.loc[d].reindex(codes) if d in crowd_stock.index else None
+            if cw is not None:
+                cw = cw.rank(pct=True) - 0.5          # 截面拥挤度 [-0.5, 0.5]
+                sc = sc - float(cfg.crowd_penalty) * cw.reindex(codes).fillna(0.0)
 
         tw = target_weights(sc, elig, ind, prev_picks, cfg)
         prev_picks = list(tw.index)
@@ -486,11 +515,19 @@ def main():
     ap.add_argument("--top-n", type=int, default=50)
     ap.add_argument("--risk-switch", action="store_true",
                     help="启用中证800 200日均线择时（默认关闭）")
+    ap.add_argument("--mom-timing", action="store_true",
+                    help="启用指数动量择时（回看 60 日动量为负则降仓）")
+    ap.add_argument("--mom-window", type=int, default=60,
+                    help="动量择时回看天数，默认 60")
+    ap.add_argument("--crowd-penalty", type=float, default=0.0,
+                    help="行业拥挤度惩罚强度（0=关闭，0.2/0.4 是常见档位）")
     ap.add_argument("--tag", default="")
     args = ap.parse_args()
 
     cfg = Config(start=args.start, end=args.end, top_n=args.top_n,
-                 risk_switch=args.risk_switch)
+                 risk_switch=args.risk_switch,
+                 mom_timing=args.mom_timing, mom_window=args.mom_window,
+                 crowd_penalty=args.crowd_penalty)
     print(f"回测 {cfg.start} ~ {cfg.end}  top_n={cfg.top_n} "
           f"risk_switch={cfg.risk_switch}")
     res = run(cfg)

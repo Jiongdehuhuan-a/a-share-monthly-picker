@@ -123,6 +123,7 @@ function renderSignal(sig) {
     <th class="num">权重</th><th class="num">综合分</th><th>新闻</th>
     <th class="num">参考价</th>
     <th class="num">买入参考</th><th class="num">目标价</th>
+    <th class="num">止盈 / 止损</th>
     <th class="num">建议股数</th><th class="num">金额</th>
     ${showF ? fkeys.map(k => `<th class="num">${F_LABEL[k]}</th>`).join("") : ""}</tr>`;
   $("#sig-table thead").innerHTML = head;
@@ -148,6 +149,9 @@ function renderSignal(sig) {
     const tgtCell = ref.target
       ? `<span class="mono">${ref.target}</span> <span style="color:#6b7480;font-size:11px">${ref.exp_ret >= 0 ? "+" : ""}${(ref.exp_ret * 100).toFixed(1)}%</span>`
       : `<span class="muted">—</span>`;
+    const tpslCell = (ref.take_profit || ref.stop)
+      ? `<span class="mono" style="color:#1a9c62">${ref.take_profit ?? "—"}</span><span style="color:#9aa2ad"> / </span><span class="mono" style="color:#c0392b">${ref.stop ?? "—"}</span>`
+      : `<span class="muted">—</span>`;
     return `<tr>
       <td class="mono">${i + 1}</td>
       <td class="mono">${x.code}</td>
@@ -159,12 +163,13 @@ function renderSignal(sig) {
       <td class="num mono">${x.price ?? "—"}</td>
       <td class="num">${refCell}</td>
       <td class="num">${tgtCell}</td>
+      <td class="num">${tpslCell}</td>
       <td class="num mono">${nf(x.shares)}</td>
       <td class="num mono">${nf(x.amount)}</td>
       ${fcells}</tr>`;
   }).join("");
   $("#sig-table tbody").innerHTML = rows ||
-    `<tr><td colspan="12" class="empty">没有选股结果</td></tr>`;
+    `<tr><td colspan="13" class="empty">没有选股结果</td></tr>`;
 }
 
 /* ---------------- 新闻情绪 ---------------- */

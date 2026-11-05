@@ -74,7 +74,11 @@ def build(out_dir: Path, n_stocks: int = 90, n_days: int = 340,
     yoy = pd.DataFrame(
         rng.normal(12, 25, (n_days, n_stocks)), index=dates, columns=codes
     ).astype("float32")
-    for name, df in [("roe", roe), ("gm", gm), ("yoy_profit", yoy)]:
+    # 盈利质量：经营现金流 / 净利润，正常公司多在 0.5~1.5，留点离群值
+    ocf_ni = pd.DataFrame(
+        np.abs(rng.normal(1.05, 0.7, (n_days, n_stocks))), index=dates, columns=codes
+    ).astype("float32")
+    for name, df in [("roe", roe), ("gm", gm), ("yoy_profit", yoy), ("ocf_ni", ocf_ni)]:
         df.index.name = "date"
         df.to_parquet(panel / f"{name}.parquet")
 

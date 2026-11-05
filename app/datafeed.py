@@ -16,7 +16,7 @@ import build_dataset as bd  # src/build_dataset.py
 
 PANELS = ["close", "adjopen", "turnover", "amount", "pct_chg",
           "pe_ttm", "pb", "float_mv"]
-FUND_PANELS = ["roe", "gm", "yoy_profit"]
+FUND_PANELS = ["roe", "gm", "yoy_profit", "ocf_ni"]
 LOOKBACK_DAYS = 15
 
 

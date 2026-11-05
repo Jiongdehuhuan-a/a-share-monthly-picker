@@ -3,7 +3,7 @@ const APP_V = "2026-11-03.3";   // 必须与 app/config.py 的 APP_VERSION 一�
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-const F_LABEL = { ep: "EP", bp: "BP", momentum: "动量", lowvol: "低波", turnover: "低换手", size: "小市值", reversal: "反转" };
+const F_LABEL = { ep: "EP", bp: "BP", momentum: "动量", lowvol: "低波", turnover: "低换手", size: "小市值", reversal: "反转", ocf_ni: "质量" };
 
 let STATE = { signal: null, settings: null, perf: null, orders: null, factorCols: false };
 
@@ -118,7 +118,7 @@ function renderSignal(sig) {
      <div class="v">${v}<small>${u}</small></div></div>`).join("");
 
   const showF = STATE.factorCols;
-  const fkeys = ["ep", "bp", "momentum", "lowvol", "turnover", "size", "reversal", "roe", "gm"];
+  const fkeys = ["ep", "bp", "momentum", "lowvol", "turnover", "size", "reversal", "ocf_ni", "roe", "gm"];
   const head = `<tr><th>#</th><th>代码</th><th>名称</th><th>行业</th>
     <th class="num">权重</th><th class="num">综合分</th><th>新闻</th>
     <th class="num">参考价</th>
@@ -696,7 +696,7 @@ async function saveSettings() {
 function exportCSV() {
   const sig = STATE.signal;
   if (!sig) return alert("还没有信号");
-  const fk = ["ep", "bp", "momentum", "lowvol", "turnover", "size", "reversal", "roe", "gm"];
+  const fk = ["ep", "bp", "momentum", "lowvol", "turnover", "size", "reversal", "ocf_ni", "roe", "gm"];
   const head = ["代码", "名称", "行业", "权重", "综合分", "新闻", "新闻z",
     "参考价", "买入挂单价", "可追上限", "卖出挂单价", "最低接受价", "目标价",
     "预计涨幅", "止损参考", "建议股数", "金额", ...fk];

@@ -53,9 +53,10 @@ DEFAULT_SETTINGS = {
     # 调优后的默认权重（2026-11 网格实验，见 output/策略优化.md）：
     # 六个核心因子等权 + 短期反转 0.3 的相对权重（≈ 各 15.9% / 反转 4.8%）
     "weights": {
-        "ep": 0.1587, "bp": 0.1587, "momentum": 0.1587,
-        "lowvol": 0.1587, "turnover": 0.1587, "size": 0.1587,
-        "reversal": 0.0476,
+        "ep": 0.1370, "bp": 0.1370, "momentum": 0.1370,
+        "lowvol": 0.1370, "turnover": 0.1370, "size": 0.1370,
+        "ocf_ni": 0.1370,          # 盈利质量：经营现金流 / 净利润
+        "reversal": 0.0411,
     },
     "quality_screen": True,     # 质量门槛：剔除 ROE<0 或毛利率<0 的股票
     "quality_tilt": 0.0,        # 质量倾斜（0~0.3，实测越大收益越低，默认关闭）
@@ -78,6 +79,7 @@ WEIGHT_LABELS = {
     "turnover": "低换手",
     "size": "小市值",
     "reversal": "短期反转(20日)",
+    "ocf_ni": "盈利质量(现金流/净利润)",
     "roe": "净资产收益率 ROE",
     "gm": "销售毛利率",
 }

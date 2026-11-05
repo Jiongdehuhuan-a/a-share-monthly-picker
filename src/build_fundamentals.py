@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -32,13 +33,28 @@ H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
      "Referer": "https://data.eastmoney.com/"}
 
 COLS = ("SECURITY_CODE,REPORTDATE,NOTICE_DATE,WEIGHTAVG_ROE,"
-        "XSMLL,YSTZ,SJLTZ")
+        "XSMLL,YSTZ,SJLTZ,BASIC_EPS,MGJYXJJE")
 URL = ("https://datacenter-web.eastmoney.com/api/data/v1/get"
        "?reportName=RPT_LICO_FN_CPD"
        f"&columns={COLS}"
        "&filter=(REPORTDATE%3D%27{date}%27)"
        "&pageNumber={page}&pageSize=500"
        "&sortColumns=SECURITY_CODE&sortTypes=1")
+
+
+def _curl_get(url: str, timeout: int = 30):
+    """urllib 兜底：这个域名偶尔会对 Python 的 TLS 握手直接回 EOF。"""
+    try:
+        p = subprocess.run(
+            ["curl", "-s", "--max-time", str(timeout),
+             "-H", f"User-Agent: {H['User-Agent']}",
+             "-H", f"Referer: {H['Referer']}", url],
+            capture_output=True, timeout=timeout + 8)
+        if p.returncode == 0 and p.stdout:
+            return json.loads(p.stdout.decode("utf-8", "ignore"))
+    except Exception:  # noqa: BLE001
+        pass
+    return None
 
 
 def _get(url: str, retries: int = 4):
@@ -48,6 +64,10 @@ def _get(url: str, retries: int = 4):
             with urllib.request.urlopen(req, timeout=30) as r:
                 return json.loads(r.read().decode("utf-8", "ignore"))
         except Exception:  # noqa: BLE001
+            if i == 0:
+                d = _curl_get(url)
+                if d is not None:
+                    return d
             import time
             time.sleep(0.5 * 2 ** i)
     return None
@@ -77,10 +97,11 @@ def fetch_quarter(date: str) -> pd.DataFrame:
     df["report_date"] = pd.to_datetime(df["REPORTDATE"])
     df["notice_date"] = pd.to_datetime(df["NOTICE_DATE"])
     for c, dst in [("WEIGHTAVG_ROE", "roe_raw"), ("XSMLL", "gm"),
-                   ("YSTZ", "yoy_rev"), ("SJLTZ", "yoy_profit")]:
+                   ("YSTZ", "yoy_rev"), ("SJLTZ", "yoy_profit"),
+                   ("BASIC_EPS", "eps"), ("MGJYXJJE", "ocf_ps")]:
         df[dst] = pd.to_numeric(df[c], errors="coerce")
     out = df[["SECURITY_CODE", "report_date", "notice_date",
-              "roe_raw", "gm", "yoy_rev", "yoy_profit"]]
+              "roe_raw", "gm", "yoy_rev", "yoy_profit", "eps", "ocf_ps"]]
     return out.rename(columns={"SECURITY_CODE": "code"})
 
 
@@ -129,14 +150,21 @@ def main():
     fund = pd.concat([f for f in frames if len(f)], ignore_index=True)
     fund = fund.drop_duplicates(["code", "report_date"], keep="last")
     fund["roe"] = annualize_roe(fund)
+    # 盈利质量（应计因子）：经营现金流 / 净利润
+    #   = 每股经营现金流 ÷ 基本每股收益
+    # 两个都是「同一报告期累计值 ÷ 总股本」，相除正好等于 CFO/NI，
+    # 不需要额外拿股本数据。亏损股（eps<=0）这个比值没意义，置空。
+    fund["ocf_ni"] = (fund["ocf_ps"] /
+                      fund["eps"].where(fund["eps"] > 0)).clip(-20, 20)
     fund.to_parquet(DATA / "fundamentals.parquet", index=False)
     print(f"      合计 {len(fund):,} 条，{fund['code'].nunique()} 只股票")
+    print(f"      ocf_ni 有效占比 {fund['ocf_ni'].notna().mean()*100:.1f}%（亏损股不计）")
 
     print("[2/3] 对齐到交易日 ...")
     close = pd.read_parquet(PANEL / "close.parquet")
     days = close.index
     for col, name in [("roe", "roe"), ("gm", "gm"),
-                      ("yoy_profit", "yoy_profit")]:
+                      ("yoy_profit", "yoy_profit"), ("ocf_ni", "ocf_ni")]:
         w = to_daily(fund, col, days).reindex(columns=close.columns)
         w.to_parquet(PANEL / f"{name}.parquet")
         cov = w.notna().any(axis=1).mean()

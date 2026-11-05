@@ -33,10 +33,10 @@ OUT = ROOT / "output"
 PANEL_COLS = ["close", "adjopen", "turnover", "amount", "pct_chg",
               "pe_ttm", "pb", "float_mv"]
 # 财务面板（需要先跑 build_fundamentals.py；缺失时自动跳过对应因子）
-OPTIONAL_COLS = ["roe", "gm", "yoy_profit"]
+OPTIONAL_COLS = ["roe", "gm", "yoy_profit", "ocf_ni"]
 
 FACTORS = ["ep", "bp", "momentum", "lowvol", "turnover", "size",
-           "reversal", "roe", "gm"]
+           "reversal", "ocf_ni", "roe", "gm"]
 BASE_FACTORS = ["ep", "bp", "momentum", "lowvol", "turnover", "size"]
 N_FACTOR = len(BASE_FACTORS)
 
@@ -46,12 +46,13 @@ def base_weights() -> dict:
 
 
 def default_weights() -> dict:
-    """调优后的默认权重：6 个核心因子等权，短期反转给 0.3 的相对权重。
+    """调优后的默认权重：7 个主因子等权（含盈利质量），短期反转给 0.3 的相对权重。
 
     0.3 是网格里夏普最高的一档（0.77 vs 不加反转 0.74 vs 反转等权 0.70），
     见 output/策略优化.md。
     """
     w = {k: 1.0 for k in BASE_FACTORS}
+    w["ocf_ni"] = 1.0          # 盈利质量：经营现金流/净利润，等权
     w["reversal"] = 0.3
     tot = sum(w.values())
     return {k: v / tot for k, v in w.items()}
@@ -141,6 +142,18 @@ def build_raw_factors(p: dict) -> dict[str, pd.DataFrame]:
         f["roe"] = p["roe"].where(p["roe"].abs() < 200)
     if "gm" in p:
         f["gm"] = p["gm"].where((p["gm"] >= -50) & (p["gm"] <= 100))
+    # 盈利质量（应计因子）：经营现金流 / 净利润，越高说明利润越“真”
+    if "ocf_ni" in p:
+        v = p["ocf_ni"].where((p["ocf_ni"] >= -5) & (p["ocf_ni"] <= 5))   # 极端值截断
+        try:
+            ind = (p["universe"].set_index("code")["industry"]
+                   .reindex(p["close"].columns).astype(str))
+            fin = ind.str.contains("银行|保险|证券|多元金融|信托", regex=True)
+            if fin.any():
+                v.loc[:, fin[fin].index] = np.nan   # 金融股口径失真，不参与
+        except Exception:  # noqa: BLE001
+            pass
+        f["ocf_ni"] = v
     return f
 
 

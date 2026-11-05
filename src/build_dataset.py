@@ -21,6 +21,7 @@ import argparse
 import json
 import os
 import random
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -56,9 +57,28 @@ _ss = None
 
 
 # ---------------------------------------------------------------- HTTP
+def _curl_get(url: str, referer: str, timeout: int = 25):
+    """urllib 兜底：用系统 curl 再要一次。
+
+    东财 datacenter-web 域名偶尔会对 Python 的 TLS ClientHello 直接
+    回 EOF（curl 却能过），表现为 SSLEOFError。这里用子进程 curl 绕过去，
+    Windows 10+/Linux/macOS 都自带 curl。
+    """
+    try:
+        p = subprocess.run(
+            ["curl", "-s", "--max-time", str(timeout),
+             "-H", f"User-Agent: {UA}", "-H", f"Referer: {referer}", url],
+            capture_output=True, timeout=timeout + 8)
+        if p.returncode == 0 and p.stdout:
+            return json.loads(p.stdout.decode("utf-8", "ignore"))
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def _get(url: str, referer: str = "https://quote.eastmoney.com/",
          retries: int = 4, timeout: int = 25):
-    """带指数退避的 JSON GET。"""
+    """带指数退避的 JSON GET；urllib 失败时用 curl 兜一次。"""
     headers = {"User-Agent": UA, "Referer": referer, "Accept": "*/*"}
     last = None
     for i in range(retries):
@@ -68,6 +88,10 @@ def _get(url: str, referer: str = "https://quote.eastmoney.com/",
                 return json.loads(r.read().decode("utf-8", "ignore"))
         except Exception as e:  # noqa: BLE001
             last = e
+            if i == 0:
+                d = _curl_get(url, referer, timeout)
+                if d is not None:
+                    return d
             time.sleep((0.4 * 2 ** i) + random.random() * 0.3)
     print(f"  [warn] GET failed after {retries}: {url[:90]} -> {last}", file=sys.stderr)
     return None

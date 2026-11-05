@@ -1,0 +1,9 @@
+# 回测与软件核心
+pandas>=2.0
+numpy>=1.24
+
+# 读写 parquet 面板（data/panel/*.parquet、data/universe.parquet）
+pyarrow>=14.0
+
+# 只有生成图表 / 跑 report.py 才需要
+matplotlib>=3.7

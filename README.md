@@ -1,5 +1,9 @@
 # A股多因子选股策略 · 工程实现
 
+[![smoke](https://github.com/Jiongdehuhuan-a/a-share-monthly-picker/actions/workflows/smoke.yml/badge.svg)](https://github.com/Jiongdehuhuan-a/a-share-monthly-picker/actions/workflows/smoke.yml)
+![python](https://img.shields.io/badge/python-3.10%2B-blue)
+![license](https://img.shields.io/badge/license-MIT-green)
+
 一套完整可复现的 A 股中低频量化选股系统：数据抓取 → 因子计算 → 组合构建 → 回测撮合 → 绩效报告，
 外加一个可以直接用的**本地选股软件**。
 
@@ -153,6 +157,20 @@ python src/price_model.py                                   # 标定参考买卖
 ```
 
 `data/runtime/`（持仓、参数、信号、日志）完全在本地生成，也不会入库。
+
+## 测试
+
+不联网、不需要真实行情也能验证整条链路：`tests/fake_data.py` 会造一套
+90 只 × 340 天的合成面板（结构、字段与真实数据完全一致），然后在临时目录里
+跑一遍「因子 → 选股 → 撮合 → 绩效」，断言净值、回撤、IC、权重约束都正常。
+
+```bash
+pip install -r requirements.txt
+python tests/smoke_backtest.py
+```
+
+CI（[.github/workflows/smoke.yml](.github/workflows/smoke.yml)）每次 push / PR 都会跑一遍。
+测试全程写临时目录，不会覆盖你本地 `data/` 里的真实数据。
 
 ## 注意事项
 

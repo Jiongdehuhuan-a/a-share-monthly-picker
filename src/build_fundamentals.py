@@ -124,6 +124,23 @@ def annualize_roe(df: pd.DataFrame) -> pd.Series:
     return df["roe_raw"] * mult
 
 
+def compute_sue(fund: pd.DataFrame, clip: float = 5.0) -> pd.Series:
+    """标准化预期外盈利 SUE。
+
+        Δ4   = 本期 EPS − 去年同期 EPS（同季度，累计口径可比）
+        SUE  = Δ4 / std(过去 8 个季度的 Δ4)        ← 用 shift(1) 排除当期，避免自相关
+
+    Bernard & Thomas 那套口径，不需要分析师一致预期，只用已披露财报，天然 PIT。
+    """
+    f = fund.sort_values(["code", "report_date"]).copy()
+    g = f.groupby("code", sort=False)
+    d4 = g["eps"].diff(4)
+    sd = (d4.groupby(f["code"], sort=False)
+          .transform(lambda x: x.rolling(8, min_periods=4).std().shift(1)))
+    sue = (d4 / sd.where(sd > 0)).clip(-clip, clip)
+    return sue.reindex(fund.index)
+
+
 def to_daily(fund: pd.DataFrame, col: str, trading_days: pd.DatetimeIndex) -> pd.DataFrame:
     """按公告日把季度值铺到交易日上（前向填充）。"""
     d = fund.dropna(subset=["notice_date", col])
@@ -156,6 +173,7 @@ def main():
     # 不需要额外拿股本数据。亏损股（eps<=0）这个比值没意义，置空。
     fund["ocf_ni"] = (fund["ocf_ps"] /
                       fund["eps"].where(fund["eps"] > 0)).clip(-20, 20)
+    fund["sue"] = compute_sue(fund)
     fund.to_parquet(DATA / "fundamentals.parquet", index=False)
     print(f"      合计 {len(fund):,} 条，{fund['code'].nunique()} 只股票")
     print(f"      ocf_ni 有效占比 {fund['ocf_ni'].notna().mean()*100:.1f}%（亏损股不计）")
@@ -164,7 +182,7 @@ def main():
     close = pd.read_parquet(PANEL / "close.parquet")
     days = close.index
     for col, name in [("roe", "roe"), ("gm", "gm"),
-                      ("yoy_profit", "yoy_profit"), ("ocf_ni", "ocf_ni")]:
+                      ("yoy_profit", "yoy_profit"), ("ocf_ni", "ocf_ni"), ("sue", "sue")]:
         w = to_daily(fund, col, days).reindex(columns=close.columns)
         w.to_parquet(PANEL / f"{name}.parquet")
         cov = w.notna().any(axis=1).mean()

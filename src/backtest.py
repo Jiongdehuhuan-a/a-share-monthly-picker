@@ -33,10 +33,10 @@ OUT = ROOT / "output"
 PANEL_COLS = ["close", "adjopen", "turnover", "amount", "pct_chg",
               "pe_ttm", "pb", "float_mv"]
 # 财务面板（需要先跑 build_fundamentals.py；缺失时自动跳过对应因子）
-OPTIONAL_COLS = ["roe", "gm", "yoy_profit", "ocf_ni"]
+OPTIONAL_COLS = ["roe", "gm", "yoy_profit", "ocf_ni", "sue", "rev_up"]
 
 FACTORS = ["ep", "bp", "momentum", "lowvol", "turnover", "size",
-           "reversal", "ocf_ni", "roe", "gm"]
+           "reversal", "ocf_ni", "sue", "rev_up", "roe", "gm"]
 BASE_FACTORS = ["ep", "bp", "momentum", "lowvol", "turnover", "size"]
 N_FACTOR = len(BASE_FACTORS)
 
@@ -142,6 +142,12 @@ def build_raw_factors(p: dict) -> dict[str, pd.DataFrame]:
         f["roe"] = p["roe"].where(p["roe"].abs() < 200)
     if "gm" in p:
         f["gm"] = p["gm"].where((p["gm"] >= -50) & (p["gm"] <= 100))
+    # 盈利超预期（SUE）：本期 EPS 同比变化 / 过去 8 期同比变化的标准差
+    if "sue" in p:
+        f["sue"] = p["sue"].where(p["sue"].abs() < 6)
+    # 分析师盈利上调比例：滚动 90 天上调篇数占比，0.5 是中性
+    if "rev_up" in p:
+        f["rev_up"] = p["rev_up"]
     # 盈利质量（应计因子）：经营现金流 / 净利润，越高说明利润越“真”
     if "ocf_ni" in p:
         v = p["ocf_ni"].where((p["ocf_ni"] >= -5) & (p["ocf_ni"] <= 5))   # 极端值截断
